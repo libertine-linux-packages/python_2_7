@@ -26,7 +26,7 @@ build_needs make
 depends build_busybox
 build_needs touch sh env expr ls sleep install ln mkdir rm
 # Hidden in makesetup
-build_needs sed basename uname
+build_needs sed basename uname wc
 
 depends build_file
 build_needs file
@@ -106,6 +106,7 @@ case "$package" in
 					_sha512 sha512module.c
 					timing timingmodule.c
 					syslog syslogmodule.c
+					binascii binascii.c
 					parser parsermodule.c
 					cStringIO cStringIO.c
 					cPickle cPickle.c
@@ -117,6 +118,7 @@ case "$package" in
 					_codecs_jp cjkcodecs/_codecs_jp.c
 					_codecs_kr cjkcodecs/_codecs_kr.c
 					_codecs_tw cjkcodecs/_codecs_tw.c
+					_multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c _multiprocessing/socket_connection.c
 					
 					# To consider
 					#zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz

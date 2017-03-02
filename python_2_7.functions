@@ -33,123 +33,148 @@ build_needs file
 
 depends build_gnuconfig
 
-build_provides 2to3 idle pydoc python2 python2-config python2.7 python2.7-config smtpd.py
+
+depends build_musl_cross_make_build
+build_needs "$libertine_build"-cc "$libertine_build"-ar "$libertine_build"-ld "$libertine_build"-ranlib
+
+build_needs sed touch cat
+_libertine_compile_build_python_2_7()
+{
+	local destDir="$1"
+	
+	pushd "$(libertine_public_sourcePath)"
+	
+		libertine_public_autoconf_replaceWithKnownVersionOfConfigGuess ./
+		libertine_public_autoconf_replaceWithKnownVersionOfConfigSub ./
+		libertine_public_autoconf_replaceWithKnownVersionOfInstallSh ./
+		
+		sed -i -e 's;/bin/sh;'"$(libertine_public_buildNeedsPath)/sh"';g' Makefile.pre.in
+		
+		#libtoolize --install --force --verbose
+		autoreconf --install --force --verbose
+
+		libertine_public_autoconf_modernAutoconfConfigure \
+			--disable-shared \
+			--enable-ipv6 \
+			--enable-big-digits=30 \
+			--enable-unicode=ucs2 \
+			--with-signal-module \
+			--with-fpectl
+
+		libertine_public_ccache_createSymlinks
+		
+		# Stops regeneration of Include/Python-ast.h and Python/Python-ast.c which requires one to already have a working python installed - FFS!
+		libertine_public_make touch
+		
+		# Stops regeneration of Python/opcode_targets.h
+		touch Python/opcode_targets.h
+		
+		# https://wiki.python.org/moin/BuildStatically - add in modules
+		cat >Modules/Setup.local <<-'EOF'
+			*static*
+			array arraymodule.c
+			cmath cmathmodule.c _math.c
+			math mathmodule.c _math.c 
+			_struct _struct.c
+			time timemodule.c
+			operator operator.c
+			_random _randommodule.c
+			_collections _collectionsmodule.c
+			_heapq _heapqmodule.c
+			itertools itertoolsmodule.c
+			strop stropmodule.c
+			_functools _functoolsmodule.c
+			_elementtree -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI _elementtree.c
+			datetime datetimemodule.c
+			_bisect _bisectmodule.c
+			unicodedata unicodedata.c
+			_locale _localemodule.c
+			_io -I$(srcdir)/Modules/_io _io/bufferedio.c _io/bytesio.c _io/fileio.c _io/iobase.c _io/_iomodule.c _io/stringio.c _io/textio.c
+			fcntl fcntlmodule.c
+			spwd spwdmodule.c
+			grp grpmodule.c
+			select selectmodule.c
+			mmap mmapmodule.c
+			_csv _csv.c
+			_socket socketmodule.c timemodule.c
+			resource resource.c
+			_md5 md5module.c md5.c
+			_sha shamodule.c
+			_sha256 sha256module.c
+			_sha512 sha512module.c
+			timing timingmodule.c
+			syslog syslogmodule.c
+			binascii binascii.c
+			parser parsermodule.c
+			cStringIO cStringIO.c
+			cPickle cPickle.c
+			pyexpat expat/xmlparse.c expat/xmlrole.c expat/xmltok.c pyexpat.c -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI
+			_multibytecodec cjkcodecs/multibytecodec.c
+			_codecs_cn cjkcodecs/_codecs_cn.c
+			_codecs_hk cjkcodecs/_codecs_hk.c
+			_codecs_iso2022 cjkcodecs/_codecs_iso2022.c
+			_codecs_jp cjkcodecs/_codecs_jp.c
+			_codecs_kr cjkcodecs/_codecs_kr.c
+			_codecs_tw cjkcodecs/_codecs_tw.c
+			_multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c _multiprocessing/socket_connection.c
+			
+			# To consider
+			#zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz
+			#SSL=/usr/local/ssl
+			#_ssl _ssl.c \
+			#	-DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
+			#	-L$(SSL)/lib -lssl -lcrypto
+			
+			# Don't seem to work
+			#_pickle _pickle.c
+			#_testcapi _testcapimodule.c
+		EOF
+		
+		set -- LDFLAGS="-static" LINKFORSHARED=" " CCSHARED=""
+		if [ -n "$destDir" ]; then
+			set -- "$@" DESTDIR="$destDir"
+		fi
+		libertine_public_make "$@" install
+		
+	popd
+}
 
 case "$package" in
 	
 	build_python_2_7)
-		depends build_musl_cross_make_build
-		build_needs "$libertine_build"-cc "$libertine_build"-ar "$libertine_build"-ld "$libertine_build"-ranlib
+
+		build_provides 2to3 idle pydoc python2 python2-config python2.7 python2.7-config smtpd.py
 		
-		build_needs sed touch cat
 		libertine_compile_build_python_2_7()
 		{
-			pushd "$(libertine_public_sourcePath)"
-			
-				libertine_public_autoconf_replaceWithKnownVersionOfConfigGuess ./
-				libertine_public_autoconf_replaceWithKnownVersionOfConfigSub ./
-				libertine_public_autoconf_replaceWithKnownVersionOfInstallSh ./
-				
-				sed -i -e 's;/bin/sh;'"$(libertine_public_buildNeedsPath)/sh"';g' Makefile.pre.in
-				
-				#libtoolize --install --force --verbose
-				autoreconf --install --force --verbose
-		
-				libertine_public_autoconf_modernAutoconfConfigure \
-					--disable-shared \
-					--enable-ipv6 \
-					--enable-big-digits=30 \
-					--enable-unicode=ucs2 \
-					--with-signal-module \
-					--with-fpectl
-
-				libertine_public_ccache_createSymlinks
-				
-				# Stops regeneration of Include/Python-ast.h and Python/Python-ast.c which requires one to already have a working python installed - FFS!
-				libertine_public_make touch
-				
-				# Stops regeneration of Python/opcode_targets.h
-				touch Python/opcode_targets.h
-				
-				# https://wiki.python.org/moin/BuildStatically - add in modules
-				cat >Modules/Setup.local <<-'EOF'
-					*static*
-					array arraymodule.c
-					cmath cmathmodule.c _math.c
-					math mathmodule.c _math.c 
-					_struct _struct.c
-					time timemodule.c
-					operator operator.c
-					_random _randommodule.c
-					_collections _collectionsmodule.c
-					_heapq _heapqmodule.c
-					itertools itertoolsmodule.c
-					strop stropmodule.c
-					_functools _functoolsmodule.c
-					_elementtree -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI _elementtree.c
-					datetime datetimemodule.c
-					_bisect _bisectmodule.c
-					unicodedata unicodedata.c
-					_locale _localemodule.c
-					_io -I$(srcdir)/Modules/_io _io/bufferedio.c _io/bytesio.c _io/fileio.c _io/iobase.c _io/_iomodule.c _io/stringio.c _io/textio.c
-					fcntl fcntlmodule.c
-					spwd spwdmodule.c
-					grp grpmodule.c
-					select selectmodule.c
-					mmap mmapmodule.c
-					_csv _csv.c
-					_socket socketmodule.c timemodule.c
-					resource resource.c
-					_md5 md5module.c md5.c
-					_sha shamodule.c
-					_sha256 sha256module.c
-					_sha512 sha512module.c
-					timing timingmodule.c
-					syslog syslogmodule.c
-					binascii binascii.c
-					parser parsermodule.c
-					cStringIO cStringIO.c
-					cPickle cPickle.c
-					pyexpat expat/xmlparse.c expat/xmlrole.c expat/xmltok.c pyexpat.c -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI
-					_multibytecodec cjkcodecs/multibytecodec.c
-					_codecs_cn cjkcodecs/_codecs_cn.c
-					_codecs_hk cjkcodecs/_codecs_hk.c
-					_codecs_iso2022 cjkcodecs/_codecs_iso2022.c
-					_codecs_jp cjkcodecs/_codecs_jp.c
-					_codecs_kr cjkcodecs/_codecs_kr.c
-					_codecs_tw cjkcodecs/_codecs_tw.c
-					_multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c _multiprocessing/socket_connection.c
-					
-					# To consider
-					#zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz
-					#SSL=/usr/local/ssl
-					#_ssl _ssl.c \
-					#	-DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
-					#	-L$(SSL)/lib -lssl -lcrypto
-					
-					# Don't seem to work
-					#_pickle _pickle.c
-					#_testcapi _testcapimodule.c
-				EOF
-				
-				libertine_public_make LDFLAGS="-static" LINKFORSHARED=" " CCSHARED="" install
-				
-			popd
+			_libertine_compile_build_python_2_7 ''
 		}
-	
 	;;
 	
 	python_2_7)
+		
 		depends build_musl_cross_make_host
 		build_needs "$libertine_host"-cc "$libertine_host"-ar "$libertine_host"-ld "$libertine_host"-ranlib "$libertine_host"-strip
 		
 		depends build_paxctl
 		build_needs paxctl
-
+		
+		depends build_python_2_7
+		build_needs python2.7
+		
+		build_needs ln
 		libertine_compile_python_2_7()
 		{
-			printf 'Not supported yet\n' 1>&2
-			exit 99
+			ln -s python2.7 "$(libertine_public_buildNeedsPath)"/python
+			
+			_libertine_compile_build_python_2_7 "$(libertine_public_outputHostSysrootPath)"
+			
+			libertine_public_installAndStripBinaryIn bin python2.7
+			
+			ln -s python2.7 "$(libertine_public_outputInitramfsPath)"/usr/bin/python2
+			ln -s python2 "$(libertine_public_outputInitramfsPath)"/usr/bin/python
+			
+			# We do not install 2to3, pydoc, idle, python2.7-config, python2-config (symlink), python-config (symlink) or smtpd.py
 		}
 	;;
 	

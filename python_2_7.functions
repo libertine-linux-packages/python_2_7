@@ -24,6 +24,7 @@ depends build_gnumake
 build_needs make
 
 depends build_busybox
+depends build_netbsd_src_sleep
 build_needs touch sh env expr ls sleep install ln mkdir rm
 # Hidden in makesetup
 build_needs sed basename uname wc
